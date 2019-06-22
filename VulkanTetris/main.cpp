@@ -18,6 +18,7 @@
 #include <fstream>
 #include <array>
 #include <chrono>
+#include <map>
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -32,6 +33,8 @@ const bool EnableValidationLayer = false;;
 #else
 const bool EnableValidationLayer = true;
 #endif
+
+#define IndexType uint16_t
 
 struct QueueFamilyIndex
 {
@@ -103,6 +106,12 @@ struct UniformBufferObject
 	glm::mat4 proj;
 };
 
+struct Tetromino
+{
+	std::array<uint16_t, 4> RotMasks;
+	glm::vec3 color;
+};
+
 class VulkanApplication
 {
 public:
@@ -119,7 +128,7 @@ private:
 	GLFWwindow* window;
 	const int WindowWidth = 800;
 	const int WindowHeight = 600;
-	const char* WindowTitle = "Vulkan Triangle";
+	const char* WindowTitle = "VulkanTetris";
 
 	void InitWindow()
 	{
@@ -138,6 +147,37 @@ private:
 	{
 		auto app = reinterpret_cast<VulkanApplication*>(glfwGetWindowUserPointer(window));
 		app->FramebufferResized = true;
+	}
+
+	std::map<int16_t, bool> KeyboardMap;
+
+	void ProcessInput()
+	{
+		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+		{
+			glfwSetWindowShouldClose(window, true);
+			return;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS && !KeyboardMap[GLFW_KEY_UP])
+		{
+			KeyboardMap[GLFW_KEY_UP] = true;
+			RotMaskIndex = (RotMaskIndex + 1) % 4;
+		}
+		else if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_RELEASE)
+		{
+			KeyboardMap[GLFW_KEY_UP] = false;
+		}
+
+		if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS && !KeyboardMap[GLFW_KEY_SPACE])
+		{
+			KeyboardMap[GLFW_KEY_SPACE] = true;
+			TetrominoIndex = (TetrominoIndex + 1) % tetrominoes.size();
+		}
+		else if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_RELEASE)
+		{
+			KeyboardMap[GLFW_KEY_SPACE] = false;
+		}
 	}
 
 	// vulkan
@@ -176,6 +216,7 @@ private:
 
 	bool FramebufferResized = false;
 
+	/*
 	const std::vector<Vertex> vertices = {
 		// top quad
 		{ {-0.5f, -0.5f, +0.0f}, {1.0f, 0.5f, 0.0f}, {0.0f, 0.0f} },
@@ -195,6 +236,49 @@ private:
 		// bottom quad
 		4, 6, 5, 6, 7, 5
 	};
+	*/
+
+	const std::vector<Vertex> CubeVertices = {
+		{ {-0.5f, -0.5f, +0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f} },
+		{ {-0.5f, +0.5f, +0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f} },
+		{ {+0.5f, -0.5f, +0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f} },
+		{ {+0.5f, +0.5f, +0.5f}, {0.0f, 1.0f, 1.0f}, {1.0f, 1.0f} },
+		{ {-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f} },
+		{ {-0.5f, +0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 1.0f} },
+		{ {+0.5f, -0.5f, -0.5f}, {1.0f, 1.0f, 0.0f}, {1.0f, 0.0f} },
+		{ {+0.5f, +0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f} }
+	};
+
+	const std::vector<uint16_t> CubeIndices = {
+		// top face
+		0, 2, 1, 2, 3, 1,
+		// bottom face
+		4, 5, 6, 6, 5, 7,
+		// left face
+		0, 1, 5, 0, 5, 4,
+		// right face
+		2, 6, 7, 2, 7, 3,
+		// front face
+		1, 3, 5, 5, 3, 7,
+		// back face
+		4, 6, 2, 2, 0, 4
+	};
+
+	const std::vector<Tetromino> tetrominoes = {
+		{ { 0x4460, 0x02E0, 0x0622, 0x0740 }, {1.0f, 0.5f, 0.0f} }, // L
+		{ { 0x0F00, 0x4444, 0x00F0, 0x2222 }, {0.0f, 1.0f, 1.0f} }, // I
+		{ { 0x2260, 0x0E20, 0x0644, 0x0470 }, {0.0f, 0.0f, 1.0f} }, // J
+		{ { 0x0660, 0x0660, 0x0660, 0x0660 }, {1.0f, 1.0f, 0.0f} }, // O
+		{ { 0x4620, 0x06C0, 0x0462, 0x0360 }, {0.0f, 1.0f, 0.0f} }, // S
+		{ { 0x4640, 0x04E0, 0x0262, 0x0720 }, {0.5f, 0.0f, 1.0f} }, // T
+		{ { 0x2640, 0x0C60, 0x0264, 0x0630 }, {1.0f, 0.0f, 0.0f} }, // Z
+	};
+
+	size_t TetrominoIndex = 0;
+	size_t RotMaskIndex = 0;
+
+	std::vector<Vertex> vertices;
+	std::vector<IndexType> indices;
 
 	VkBuffer VertexBuffer;
 	VkDeviceMemory VertexBufferMemory;
@@ -234,6 +318,7 @@ private:
 		CreateTextureImage();
 		CreateTextureImageView();
 		CreateTextureSampler();
+		UpdateVertexAndIndexValues();
 		CreateVertexBuffer();
 		CreateIndexBuffer();
 		CreateUniformBuffers();
@@ -331,7 +416,7 @@ private:
 		}
 	}
 
-	VkResult vkCreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pMessenger)
+	VkResult vkCreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT * pCreateInfo, const VkAllocationCallbacks * pAllocator, VkDebugUtilsMessengerEXT * pMessenger)
 	{
 		PFN_vkCreateDebugUtilsMessengerEXT func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
 		// PFN_vkCreateDebugUtilsMessengerEXT func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT> (vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
@@ -346,7 +431,7 @@ private:
 		}
 	}
 
-	void vkDestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT pMessenger, const VkAllocationCallbacks* pAllocator)
+	void vkDestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT pMessenger, const VkAllocationCallbacks * pAllocator)
 	{
 		PFN_vkDestroyDebugUtilsMessengerEXT func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
 
@@ -356,7 +441,7 @@ private:
 		}
 	}
 
-	static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
+	static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT * pCallbackData, void* pUserData)
 	{
 		std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
 		return VK_FALSE;
@@ -437,7 +522,7 @@ private:
 		VkPhysicalDeviceFeatures features;
 		vkGetPhysicalDeviceFeatures(device, &features);
 
-		return index.IsComplete() && ExtensionSupport && SwapChainAdequate && features.samplerAnisotropy;
+		return index.IsComplete() && ExtensionSupport&& SwapChainAdequate&& features.samplerAnisotropy;
 	}
 
 	QueueFamilyIndex FindQueueFamilyIndex(VkPhysicalDevice device)
@@ -610,7 +695,7 @@ private:
 		return support;
 	}
 
-	VkSurfaceFormatKHR ChooseSwapChainSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& formats)
+	VkSurfaceFormatKHR ChooseSwapChainSurfaceFormat(const std::vector<VkSurfaceFormatKHR> & formats)
 	{
 		if (formats.size() == 1 && formats.begin()->format == VK_FORMAT_UNDEFINED)
 		{
@@ -628,7 +713,7 @@ private:
 		return *formats.begin();
 	}
 
-	VkPresentModeKHR ChooseSwapChainPresentMode(const std::vector<VkPresentModeKHR>& modes)
+	VkPresentModeKHR ChooseSwapChainPresentMode(const std::vector<VkPresentModeKHR> & modes)
 	{
 		VkPresentModeKHR available = VK_PRESENT_MODE_FIFO_KHR;
 
@@ -648,7 +733,7 @@ private:
 		return available;
 	}
 
-	VkExtent2D ChooseSwapChainExtent(const VkSurfaceCapabilitiesKHR& capabilities)
+	VkExtent2D ChooseSwapChainExtent(const VkSurfaceCapabilitiesKHR & capabilities)
 	{
 		if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
 		{
@@ -766,7 +851,7 @@ private:
 		}
 	}
 
-	static std::vector<char> ReadFile(const std::string& FileName)
+	static std::vector<char> ReadFile(const std::string & FileName)
 	{
 		std::ifstream file(FileName, std::ios::ate | std::ios::binary);
 
@@ -786,7 +871,7 @@ private:
 		return buffer;
 	}
 
-	VkShaderModule CreateShaderModule(const std::vector<char>& bytecode)
+	VkShaderModule CreateShaderModule(const std::vector<char> & bytecode)
 	{
 		VkShaderModuleCreateInfo ShaderModuleCreateInfo = {
 			VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,		// sType
@@ -1173,7 +1258,7 @@ private:
 		TransitionImageLayout(DepthImage, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 	}
 
-	VkFormat FindSupportedFormat(const std::vector<VkFormat>& formats, VkImageTiling tiling, VkFormatFeatureFlags feature)
+	VkFormat FindSupportedFormat(const std::vector<VkFormat> & formats, VkImageTiling tiling, VkFormatFeatureFlags feature)
 	{
 		for (VkFormat format : formats)
 		{
@@ -1246,7 +1331,7 @@ private:
 		vkFreeMemory(device, StagingBufferMemory, nullptr);
 	}
 
-	void CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& memory)
+	void CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage & image, VkDeviceMemory & memory)
 	{
 		VkResult result;
 
@@ -1508,8 +1593,8 @@ private:
 	{
 		VkBuffer StagingBuffer;
 		VkDeviceMemory StagingBufferMemory;
-		// VkDeviceSize size = sizeof(uint16_t) * indices.size();
-		VkDeviceSize size = sizeof(indices.at(0)) * indices.size();
+		// VkDeviceSize size = sizeof(indices.at(0)) * indices.size();
+		VkDeviceSize size = sizeof(IndexType) * indices.size();
 		VkBufferUsageFlags usage;
 		VkMemoryPropertyFlags properties;
 
@@ -1525,6 +1610,115 @@ private:
 		usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 		properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		CreateBuffer(size, usage, properties, IndexBuffer, IndexBufferMemory);
+
+		CopyBuffer(StagingBuffer, IndexBuffer, size);
+
+		vkDestroyBuffer(device, StagingBuffer, nullptr);
+		vkFreeMemory(device, StagingBufferMemory, nullptr);
+	}
+
+	void UpdateVertexAndIndexValues()
+	{
+		uint16_t mask = tetrominoes[TetrominoIndex].RotMasks[RotMaskIndex];
+
+		// update vertex values
+
+		vertices.clear();
+
+		glm::vec2 offset = { -1.5f, +1.5f };
+		for (uint16_t j = 0x8000; j != 0; j >>= 1)
+		{
+			if ((mask & j) != 0)
+			{
+				for (auto v : CubeVertices)
+				{
+					v.position.x += offset.x;
+					v.position.y += offset.y;
+					v.color = tetrominoes[TetrominoIndex].color;
+					vertices.push_back(v);
+				}
+			}
+
+			if (offset.x == +1.5f)
+			{
+				offset.x = -1.5f;
+				offset.y--;
+			}
+			else
+			{
+				offset.x++;
+			}
+		}
+
+		// update index values
+
+		indices.clear();
+
+		uint16_t ones = 0;
+		for (uint16_t j = 0x8000; j != 0; j >>= 1)
+		{
+			if ((mask & j) != 0)
+			{
+				for (auto i : CubeIndices)
+				{
+					indices.push_back(i + ones * 8);
+				}
+				ones++;
+			}
+		}
+	}
+
+	void UpdateVertexBuffer()
+	{
+		VkBuffer StagingBuffer;
+		VkDeviceMemory StagingBufferMemory;
+		VkDeviceSize size = sizeof(Vertex) * vertices.size();
+		VkBufferUsageFlags usage;
+		VkMemoryPropertyFlags properties;
+
+		usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+		CreateBuffer(size, usage, properties, StagingBuffer, StagingBufferMemory);
+
+		void* data;
+		vkMapMemory(device, StagingBufferMemory, 0, size, 0, &data);
+		memcpy(data, vertices.data(), size);
+		vkUnmapMemory(device, StagingBufferMemory);
+
+		/*
+		usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+		properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		CreateBuffer(size, usage, properties, VertexBuffer, VertexBufferMemory);
+		*/
+
+		CopyBuffer(StagingBuffer, VertexBuffer, size);
+
+		vkDestroyBuffer(device, StagingBuffer, nullptr);
+		vkFreeMemory(device, StagingBufferMemory, nullptr);
+	}
+
+	void UpdateIndexBuffer()
+	{
+		VkBuffer StagingBuffer;
+		VkDeviceMemory StagingBufferMemory;
+		VkDeviceSize size = sizeof(IndexType) * indices.size();
+		VkBufferUsageFlags usage;
+		VkMemoryPropertyFlags properties;
+
+		usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+		CreateBuffer(size, usage, properties, StagingBuffer, StagingBufferMemory);
+
+		void* data;
+		vkMapMemory(device, StagingBufferMemory, 0, size, 0, &data);
+		memcpy(data, indices.data(), size);
+		vkUnmapMemory(device, StagingBufferMemory);
+
+		/*
+		usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+		properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		CreateBuffer(size, usage, properties, IndexBuffer, IndexBufferMemory);
+		*/
 
 		CopyBuffer(StagingBuffer, IndexBuffer, size);
 
@@ -1557,12 +1751,13 @@ private:
 
 		UniformBufferObject ubo = {};
 
-		ubo.model = glm::rotate(glm::mat4(1.0f), DeltaTime * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		// ubo.model = glm::rotate(glm::mat4(1.0f), DeltaTime * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		ubo.model = glm::mat4(1.0f);
 
-		ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		ubo.view = glm::lookAt(glm::vec3(0.0f, 0.0f, 10.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
 		float AspectRatio = SwapChainExtent.width / static_cast<float>(SwapChainExtent.height);
-		ubo.proj = glm::perspective(glm::radians(45.0f), AspectRatio, 0.1f, 10.0f);
+		ubo.proj = glm::perspective(glm::radians(45.0f), AspectRatio, 0.1f, 100.0f);
 		ubo.proj[1][1] *= -1;
 
 		VkDeviceSize size = sizeof(ubo);
@@ -1712,6 +1907,8 @@ private:
 	{
 		VkResult result;
 
+		// create a buffer
+
 		VkBufferCreateInfo BufferCreateInfo = {
 			VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,	// sType
 			nullptr,								// pNext
@@ -1729,6 +1926,8 @@ private:
 		{
 			throw std::runtime_error("failed to create buffer");
 		}
+
+		// back the buffer with (device) memory
 
 		VkMemoryRequirements MemoryRequirements;
 		vkGetBufferMemoryRequirements(device, buffer, &MemoryRequirements);
@@ -1748,6 +1947,8 @@ private:
 		{
 			throw std::runtime_error("failed to allocate buffer memory");
 		}
+
+		// bind memory to buffer
 
 		vkBindBufferMemory(device, buffer, memory, 0);
 	}
@@ -1841,7 +2042,7 @@ private:
 		{
 			bool suitable = (MemoryProperties.memoryTypes[i].propertyFlags & properties) == properties;
 
-			if (TypeFilter & (1 << i) && suitable)
+			if ((TypeFilter & (1 << i)) && suitable)
 			{
 				return i;
 			}
@@ -1892,7 +2093,7 @@ private:
 				SwapChainExtent	// extent		
 			};
 
-			VkClearValue ClearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
+			VkClearValue ClearColor = { 0.1f, 0.1f, 0.1f, 1.0f };
 			VkClearValue ClearDepthStencil = { 1.0f, 0 };
 			std::vector<VkClearValue> ClearValues = { ClearColor, ClearDepthStencil };
 
@@ -1914,8 +2115,9 @@ private:
 			std::vector<VkDeviceSize> offsets = { 0 };
 			vkCmdBindVertexBuffers(CommandBuffers[i], 0, 1, VertexBuffers.data(), offsets.data());
 
-			VkIndexType IndexType = sizeof(indices.at(0)) == 2 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32;
-			vkCmdBindIndexBuffer(CommandBuffers[i], IndexBuffer, 0, IndexType);
+			// VkIndexType IndexType = sizeof(indices.at(0)) == 2 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32;
+			// vkCmdBindIndexBuffer(CommandBuffers[i], IndexBuffer, 0, IndexType);
+			vkCmdBindIndexBuffer(CommandBuffers[i], IndexBuffer, 0, sizeof(IndexType) == 2 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
 
 			vkCmdBindDescriptorSets(CommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, PipelineLayout, 0, 1, DescriptorSets.data(), 0, nullptr);
 
@@ -1955,6 +2157,12 @@ private:
 		std::vector<VkSemaphore> WaitSemaphores = { ImageAvailableSemaphore.at(CurrentFrame) };
 		std::vector<VkPipelineStageFlags> stages = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 		std::vector<VkSemaphore> SignalSemaphores = { RenderFinishedSemaphore.at(CurrentFrame) };
+
+
+		UpdateVertexAndIndexValues();
+		UpdateVertexBuffer();
+		UpdateIndexBuffer();
+
 
 		UpdateUniformBuffer(index);
 
@@ -2042,6 +2250,8 @@ private:
 	{
 		while (!glfwWindowShouldClose(window))
 		{
+			ProcessInput();
+
 			glfwPollEvents();
 			DrawFrame();
 		}
