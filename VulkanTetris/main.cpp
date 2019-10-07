@@ -19,6 +19,7 @@
 #include <array>
 #include <chrono>
 #include <map>
+#include <functional>
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -29,7 +30,7 @@
 #include <stb/stb_image.h>
 
 #ifdef NDEBUG
-const bool EnableValidationLayer = false;;
+const bool EnableValidationLayer = false;
 #else
 const bool EnableValidationLayer = true;
 #endif
@@ -112,13 +113,24 @@ struct Tetromino
 	glm::vec3 color;
 };
 
+struct CurrentTetromino
+{
+	size_t type;
+	std::pair<int, int> pos;
+	uint8_t rot;
+};
+
 class VulkanApplication
 {
 public:
 	void run()
 	{
 		InitWindow();
+
+		InitGame();
+
 		InitVulkan();
+
 		MainLoop();
 		cleanup();
 	}
@@ -141,6 +153,8 @@ private:
 
 		glfwSetWindowUserPointer(window, this);
 		glfwSetFramebufferSizeCallback(window, FramebufferResizeCallback);
+
+		// glfwSetKeyCallback(window, KeyCallback);
 	}
 
 	static void FramebufferResizeCallback(GLFWwindow* window, int width, int height)
@@ -149,10 +163,17 @@ private:
 		app->FramebufferResized = true;
 	}
 
-	std::map<int16_t, bool> KeyboardMap;
+	std::map<int, bool> KeyboardMap;
+	std::map<int, std::function<void()>> KeyDispatchTable = {
+		{GLFW_KEY_LEFT, [=]() { MoveTetromino(GLFW_KEY_LEFT); }},
+		{GLFW_KEY_RIGHT, [=]() { MoveTetromino(GLFW_KEY_RIGHT); }},
+		{GLFW_KEY_DOWN, [=]() { MoveTetromino(GLFW_KEY_DOWN); }},
+		{GLFW_KEY_UP, [=]() { RotateTetromino(); }}
+	};
 
 	void ProcessInput()
 	{
+		/*
 		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		{
 			glfwSetWindowShouldClose(window, true);
@@ -178,7 +199,43 @@ private:
 		{
 			KeyboardMap[GLFW_KEY_SPACE] = false;
 		}
+		*/
+
+		for (auto const& [key, func] : KeyDispatchTable)
+		{
+			if (glfwGetKey(window, key) == GLFW_PRESS && !KeyboardMap[key])
+			{
+				KeyboardMap[key] = true;
+				func();
+			}
+			else if (glfwGetKey(window, key) == GLFW_RELEASE)
+			{
+				KeyboardMap[key] = false;
+			}
+		}
 	}
+
+	/*
+	static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+	{
+		if (action == GLFW_PRESS)
+		{
+			KeyboardMap[key] = true;
+
+			switch (key)
+			{
+			case GLFW_KEY_UP:
+				RotMaskIndex = (RotMaskIndex + 1) % 4;
+				break;
+			}
+		}
+
+		if (action == GLFW_RELEASE)
+		{
+			KeyboardMap[key] = false;
+		}
+	}
+	*/
 
 	// vulkan
 	const std::vector<const char*> layers = { "VK_LAYER_LUNARG_standard_validation" };
@@ -216,28 +273,6 @@ private:
 
 	bool FramebufferResized = false;
 
-	/*
-	const std::vector<Vertex> vertices = {
-		// top quad
-		{ {-0.5f, -0.5f, +0.0f}, {1.0f, 0.5f, 0.0f}, {0.0f, 0.0f} },
-		{ {-0.5f, +0.5f, +0.0f}, {1.0f, 0.0f, 1.0f}, {0.0f, 1.0f} },
-		{ {+0.5f, -0.5f, +0.0f}, {1.0f, 1.0f, 0.0f}, {1.0f, 0.0f} },
-		{ {+0.5f, +0.5f, +0.0f}, {0.0f, 1.0f, 1.0f}, {1.0f, 1.0f} },
-		// bottom quad
-		{ {-0.5f, -0.5f, -0.5f}, {1.0f, 0.5f, 0.0f}, {0.0f, 0.0f} },
-		{ {-0.5f, +0.5f, -0.5f}, {1.0f, 0.0f, 1.0f}, {0.0f, 1.0f} },
-		{ {+0.5f, -0.5f, -0.5f}, {1.0f, 1.0f, 0.0f}, {1.0f, 0.0f} },
-		{ {+0.5f, +0.5f, -0.5f}, {0.0f, 1.0f, 1.0f}, {1.0f, 1.0f} }
-	};
-
-	const std::vector<uint16_t> indices = {
-		// top quad
-		0, 2, 1, 2, 3, 1,
-		// bottom quad
-		4, 6, 5, 6, 7, 5
-	};
-	*/
-
 	const std::vector<Vertex> CubeVertices = {
 		{ {-0.5f, -0.5f, +0.5f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f} },
 		{ {-0.5f, +0.5f, +0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f} },
@@ -264,19 +299,6 @@ private:
 		4, 6, 2, 2, 0, 4
 	};
 
-	const std::vector<Tetromino> tetrominoes = {
-		{ { 0x4460, 0x02E0, 0x0622, 0x0740 }, {1.0f, 0.5f, 0.0f} }, // L
-		{ { 0x0F00, 0x4444, 0x00F0, 0x2222 }, {0.0f, 1.0f, 1.0f} }, // I
-		{ { 0x2260, 0x0E20, 0x0644, 0x0470 }, {0.0f, 0.0f, 1.0f} }, // J
-		{ { 0x0660, 0x0660, 0x0660, 0x0660 }, {1.0f, 1.0f, 0.0f} }, // O
-		{ { 0x4620, 0x06C0, 0x0462, 0x0360 }, {0.0f, 1.0f, 0.0f} }, // S
-		{ { 0x4640, 0x04E0, 0x0262, 0x0720 }, {0.5f, 0.0f, 1.0f} }, // T
-		{ { 0x2640, 0x0C60, 0x0264, 0x0630 }, {1.0f, 0.0f, 0.0f} }, // Z
-	};
-
-	size_t TetrominoIndex = 0;
-	size_t RotMaskIndex = 0;
-
 	std::vector<Vertex> vertices;
 	std::vector<IndexType> indices;
 
@@ -300,6 +322,258 @@ private:
 	VkDeviceMemory DepthImageMemory;
 	VkImageView DepthImageView;
 
+	// game stuff
+
+	const std::vector<Tetromino> tetrominoes = {
+		{ { 0x4460, 0x02E0, 0x0622, 0x0740 }, {1.0f, 0.5f, 0.0f} }, // L
+		{ { 0x0F00, 0x4444, 0x00F0, 0x2222 }, {0.0f, 1.0f, 1.0f} }, // I
+		{ { 0x2260, 0x0E20, 0x0644, 0x0470 }, {0.0f, 0.0f, 1.0f} }, // J
+		{ { 0x0660, 0x0660, 0x0660, 0x0660 }, {1.0f, 1.0f, 0.0f} }, // O
+		{ { 0x4620, 0x06C0, 0x0462, 0x0360 }, {0.0f, 1.0f, 0.0f} }, // S
+		{ { 0x4640, 0x04E0, 0x0262, 0x0720 }, {0.5f, 0.0f, 1.0f} }, // T
+		{ { 0x2640, 0x0C60, 0x0264, 0x0630 }, {1.0f, 0.0f, 0.0f} }, // Z
+	};
+
+	size_t TetrominoIndex = 0;
+	size_t RotMaskIndex = 0;
+
+	const size_t rows = 20;
+	const size_t cols = 10;
+	std::vector<int8_t> grid;
+
+	int8_t GetGridBlock(size_t row, size_t col)
+	{
+		return grid[row * cols + col];
+	}
+
+	CurrentTetromino current;
+
+	void InitGame()
+	{
+		grid.resize(rows * cols);
+		std::fill(grid.begin(), grid.end(), -1);
+
+		current.type = rand() % tetrominoes.size();
+		current.pos = { 0, 0 };
+		current.rot = 0;
+
+		vertices.clear();
+		indices.clear();
+
+		uint16_t mask = tetrominoes[current.type].RotMasks[current.rot];
+
+		uint8_t row = 0;
+		uint8_t col = 0;
+
+		for (uint16_t j = 0x8000; j != 0; j >>= 1)
+		{
+			if ((mask & j) != 0)
+			{
+				for (auto v : CubeVertices)
+				{
+					glm::vec2 offset = FromGridToWorld(row, col);
+
+					v.position.x += offset.x;
+					v.position.y += offset.y;
+
+					v.color = tetrominoes[current.type].color;
+					vertices.push_back(v);
+				}
+
+				for (auto i : CubeIndices)
+				{
+					indices.push_back(i + vertices.size() - CubeVertices.size());
+				}
+			}
+
+			if (col == 3)
+			{
+				row++;
+				col = 0;
+			}
+			else
+			{
+				col++;
+			}
+		}
+	}
+
+	bool CheckTetromino(size_t type, std::pair<int, int> pos, size_t rot)
+	{
+		uint16_t mask = tetrominoes[type].RotMasks[rot];
+
+		uint8_t row = 0;
+		uint8_t col = 0;
+
+		for (uint16_t j = 0x8000; j != 0; j >>= 1)
+		{
+			if ((mask & j) != 0)
+			{
+				/*
+				std::pair<int, int> BlockPos;
+				BlockPos.first = pos.first + col;
+				BlockPos.second = pos.second + row;
+				*/
+
+				int x = pos.first + col;
+				int y = pos.second + row;
+
+				// if (BlockPos.first < 0 || BlockPos.first >= cols || BlockPos.second < 0 || BlockPos.second >= rows || GetGridBlock())
+				if (x < 0 || x >= cols || y < 0 || y >= rows || GetGridBlock(x, y) != -1)
+				{
+					// chack also if the grid spot is free
+
+					return false;
+				}
+			}
+
+			if (col == 3)
+			{
+				row++;
+				col = 0;
+			}
+			else
+			{
+				col++;
+			}
+		}
+
+		return true;
+	}
+
+	void MoveTetromino(int key)
+	{
+		// new position
+		// check new position
+		// assign new position
+
+		switch (key)
+		{
+		case GLFW_KEY_LEFT:
+		{
+			std::cout << "press : GLFW_KEY_LEFT" << std::endl;
+
+			std::pair<int, int> NewPos = current.pos;
+			NewPos.first -= 1;
+
+			if (CheckTetromino(current.type, NewPos, current.rot))
+			{
+				current.pos = NewPos;
+				UpdateTetramino();
+				UpdateVertexBuffer();
+				UpdateIndexBuffer();
+			}
+			else
+			{
+				std::cout << "CheckTetromino --> false" << std::endl;
+			}
+		}
+		break;
+		case GLFW_KEY_RIGHT:
+		{
+			std::cout << "press : GLFW_KEY_RIGHT" << std::endl;
+
+			std::pair<int, int> NewPos = current.pos;
+			NewPos.first += 1;
+
+			if (CheckTetromino(current.type, NewPos, current.rot))
+			{
+				current.pos = NewPos;
+				UpdateTetramino();
+				UpdateVertexBuffer();
+				UpdateIndexBuffer();
+			}
+			else
+			{
+				std::cout << "CheckTetromino --> false" << std::endl;
+			}
+		}
+		break;
+		case GLFW_KEY_DOWN:
+		{
+			std::cout << "press : GLFW_KEY_DOWN" << std::endl;
+
+			std::pair<int, int> NewPos = current.pos;
+			NewPos.second += 1;
+
+			if (CheckTetromino(current.type, NewPos, current.rot))
+			{
+				current.pos = NewPos;
+				UpdateTetramino();
+				UpdateVertexBuffer();
+				UpdateIndexBuffer();
+			}
+			else
+			{
+				std::cout << "CheckTetromino --> false" << std::endl;
+			}
+		}
+		break;
+		}
+	}
+
+	void RotateTetromino()
+	{
+		std::cout << "press : GLFW_KEY_UP" << std::endl;
+
+		uint8_t NewRot = (current.rot + 1) % 4;
+
+		if (CheckTetromino(current.type, current.pos, NewRot))
+		{
+			current.rot = NewRot;
+			UpdateTetramino();
+			UpdateVertexBuffer();
+			UpdateIndexBuffer();
+		}
+		else
+		{
+			std::cout << "CheckTetromino --> false" << std::endl;
+		}
+	}
+
+	void UpdateTetramino()
+	{
+		vertices.clear();
+		indices.clear();
+
+		uint16_t mask = tetrominoes[current.type].RotMasks[current.rot];
+
+		uint8_t row = 0;
+		uint8_t col = 0;
+
+		for (uint16_t j = 0x8000; j != 0; j >>= 1)
+		{
+			if ((mask & j) != 0)
+			{
+				for (auto v : CubeVertices)
+				{
+					glm::vec2 offset = FromGridToWorld(current.pos.second + row, current.pos.first + col);
+
+					v.position.x += offset.x;
+					v.position.y += offset.y;
+
+					v.color = tetrominoes[current.type].color;
+					vertices.push_back(v);
+				}
+
+				for (auto i : CubeIndices)
+				{
+					indices.push_back(i + vertices.size() - CubeVertices.size());
+				}
+			}
+
+			if (col == 3)
+			{
+				row++;
+				col = 0;
+			}
+			else
+			{
+				col++;
+			}
+		}
+	}
+
 	void InitVulkan()
 	{
 		CreateInstance();
@@ -318,7 +592,8 @@ private:
 		CreateTextureImage();
 		CreateTextureImageView();
 		CreateTextureSampler();
-		UpdateVertexAndIndexValues();
+		// UpdateVertexAndIndexValues();
+		// UpdateGrid();
 		CreateVertexBuffer();
 		CreateIndexBuffer();
 		CreateUniformBuffers();
@@ -1619,13 +1894,12 @@ private:
 
 	void UpdateVertexAndIndexValues()
 	{
-		uint16_t mask = tetrominoes[TetrominoIndex].RotMasks[RotMaskIndex];
-
-		// update vertex values
-
 		vertices.clear();
+		indices.clear();
 
+		uint16_t mask = tetrominoes[TetrominoIndex].RotMasks[RotMaskIndex];
 		glm::vec2 offset = { -1.5f, +1.5f };
+
 		for (uint16_t j = 0x8000; j != 0; j >>= 1)
 		{
 			if ((mask & j) != 0)
@@ -1636,6 +1910,11 @@ private:
 					v.position.y += offset.y;
 					v.color = tetrominoes[TetrominoIndex].color;
 					vertices.push_back(v);
+				}
+
+				for (auto i : CubeIndices)
+				{
+					indices.push_back(i + vertices.size() - 8);
 				}
 			}
 
@@ -1649,21 +1928,56 @@ private:
 				offset.x++;
 			}
 		}
+	}
 
-		// update index values
+	glm::vec2 FromGridToWorld(size_t row, size_t col)
+	{
+		float x = -(cols * 0.5f - 1 + 0.5f) + col;
+		float y = rows * 0.5f - 1 + 0.5f - row;
 
+		return { x, y };
+	}
+
+	void UpdateGrid()
+	{
+		vertices.clear();
 		indices.clear();
 
-		uint16_t ones = 0;
-		for (uint16_t j = 0x8000; j != 0; j >>= 1)
+		// glm::vec2 offset = { -(cols * 0.5f - 1 + 0.5f), rows * 0.5f - 1 + 0.5f };
+
+		for (size_t row = 0; row < rows; row++)
 		{
-			if ((mask & j) != 0)
+			for (size_t col = 0; col < cols; col++)
 			{
+				int8_t index = rand() % 7;
+
+				for (auto v : CubeVertices)
+				{
+					glm::vec2 offset = FromGridToWorld(row, col);
+
+					v.position.x += offset.x;
+					v.position.y += offset.y;
+
+					v.color = tetrominoes[index].color;
+					vertices.push_back(v);
+				}
+
 				for (auto i : CubeIndices)
 				{
-					indices.push_back(i + ones * 8);
+					indices.push_back(i + vertices.size() - CubeVertices.size());
 				}
-				ones++;
+
+				/*
+				if (offset.x == (cols * 0.5f - 1 + 0.5f))
+				{
+					offset.x = -(cols * 0.5f - 1 + 0.5f);
+					offset.y--;
+				}
+				else
+				{
+					offset.x++;
+				}
+				*/
 			}
 		}
 	}
@@ -1754,7 +2068,7 @@ private:
 		// ubo.model = glm::rotate(glm::mat4(1.0f), DeltaTime * glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 		ubo.model = glm::mat4(1.0f);
 
-		ubo.view = glm::lookAt(glm::vec3(0.0f, 0.0f, 10.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		ubo.view = glm::lookAt(glm::vec3(0.0f, 0.0f, 40.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
 		float AspectRatio = SwapChainExtent.width / static_cast<float>(SwapChainExtent.height);
 		ubo.proj = glm::perspective(glm::radians(45.0f), AspectRatio, 0.1f, 100.0f);
@@ -2158,11 +2472,11 @@ private:
 		std::vector<VkPipelineStageFlags> stages = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 		std::vector<VkSemaphore> SignalSemaphores = { RenderFinishedSemaphore.at(CurrentFrame) };
 
-
+		/*
 		UpdateVertexAndIndexValues();
 		UpdateVertexBuffer();
 		UpdateIndexBuffer();
-
+		*/
 
 		UpdateUniformBuffer(index);
 
