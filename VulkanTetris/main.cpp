@@ -447,68 +447,40 @@ private:
 		// check new position
 		// assign new position
 
+		std::pair<int, int> NewPos = current.pos;
+
 		switch (key)
 		{
 		case GLFW_KEY_LEFT:
 		{
 			std::cout << "press : GLFW_KEY_LEFT" << std::endl;
-
-			std::pair<int, int> NewPos = current.pos;
 			NewPos.first -= 1;
-
-			if (CheckTetromino(current.type, NewPos, current.rot))
-			{
-				current.pos = NewPos;
-				UpdateTetramino();
-				UpdateVertexBuffer();
-				UpdateIndexBuffer();
-			}
-			else
-			{
-				std::cout << "CheckTetromino --> false" << std::endl;
-			}
 		}
 		break;
 		case GLFW_KEY_RIGHT:
 		{
 			std::cout << "press : GLFW_KEY_RIGHT" << std::endl;
-
-			std::pair<int, int> NewPos = current.pos;
 			NewPos.first += 1;
-
-			if (CheckTetromino(current.type, NewPos, current.rot))
-			{
-				current.pos = NewPos;
-				UpdateTetramino();
-				UpdateVertexBuffer();
-				UpdateIndexBuffer();
-			}
-			else
-			{
-				std::cout << "CheckTetromino --> false" << std::endl;
-			}
 		}
 		break;
 		case GLFW_KEY_DOWN:
 		{
 			std::cout << "press : GLFW_KEY_DOWN" << std::endl;
-
-			std::pair<int, int> NewPos = current.pos;
 			NewPos.second += 1;
-
-			if (CheckTetromino(current.type, NewPos, current.rot))
-			{
-				current.pos = NewPos;
-				UpdateTetramino();
-				UpdateVertexBuffer();
-				UpdateIndexBuffer();
-			}
-			else
-			{
-				std::cout << "CheckTetromino --> false" << std::endl;
-			}
 		}
 		break;
+		}
+
+		if (CheckTetromino(current.type, NewPos, current.rot))
+		{
+			current.pos = NewPos;
+			UpdateTetramino();
+			UpdateVertexBuffer();
+			UpdateIndexBuffer();
+		}
+		else
+		{
+			std::cout << "CheckTetromino --> false" << std::endl;
 		}
 	}
 
