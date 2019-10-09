@@ -168,7 +168,8 @@ private:
 		{GLFW_KEY_LEFT, [=]() { MoveTetromino(GLFW_KEY_LEFT); }},
 		{GLFW_KEY_RIGHT, [=]() { MoveTetromino(GLFW_KEY_RIGHT); }},
 		{GLFW_KEY_DOWN, [=]() { MoveTetromino(GLFW_KEY_DOWN); }},
-		{GLFW_KEY_UP, [=]() { RotateTetromino(); }}
+		{GLFW_KEY_UP, [=]() { RotateTetromino(); }},
+		{GLFW_KEY_SPACE, [=]() { MoveTetromino(GLFW_KEY_SPACE); }}
 	};
 
 	void ProcessInput()
@@ -467,6 +468,12 @@ private:
 		{
 			std::cout << "press : GLFW_KEY_DOWN" << std::endl;
 			NewPos.second += 1;
+		}
+		break;
+		case GLFW_KEY_SPACE:
+		{
+			std::cout << "press : GLFW_KEY_SPACE" << std::endl;
+			current.type = (current.type + 1) % tetrominoes.size();
 		}
 		break;
 		}
