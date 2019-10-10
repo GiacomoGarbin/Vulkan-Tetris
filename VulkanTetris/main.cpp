@@ -553,6 +553,13 @@ private:
 		}
 	}
 
+	void DropTetramino()
+	{
+
+	}
+
+	// vulkan stuff
+
 	void InitVulkan()
 	{
 		CreateInstance();
@@ -2035,12 +2042,24 @@ private:
 		}
 	}
 
+	int ticks = 0;
+
 	void UpdateUniformBuffer(uint32_t index)
 	{
 		static auto StartTime = std::chrono::high_resolution_clock::now();
 
 		auto CurrentTime = std::chrono::high_resolution_clock::now();
 		float DeltaTime = std::chrono::duration<float, std::chrono::seconds::period>(CurrentTime - StartTime).count();
+
+		if (DeltaTime - ticks < 1)
+		{
+
+		}
+		else
+		{
+			ticks++;
+			std::cout << ticks << std::endl;
+		}
 
 		UniformBufferObject ubo = {};
 
