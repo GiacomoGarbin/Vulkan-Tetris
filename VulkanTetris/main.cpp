@@ -154,7 +154,7 @@ private:
 		glfwSetWindowUserPointer(window, this);
 		glfwSetFramebufferSizeCallback(window, FramebufferResizeCallback);
 
-		// glfwSetKeyCallback(window, KeyCallback);
+		glfwSetKeyCallback(window, KeyCallback);
 	}
 
 	static void FramebufferResizeCallback(GLFWwindow* window, int width, int height)
@@ -163,80 +163,37 @@ private:
 		app->FramebufferResized = true;
 	}
 
-	std::map<int, bool> KeyboardMap;
-	std::map<int, std::function<void()>> KeyDispatchTable = {
-		{GLFW_KEY_LEFT, [=]() { MoveTetromino(GLFW_KEY_LEFT); }},
-		{GLFW_KEY_RIGHT, [=]() { MoveTetromino(GLFW_KEY_RIGHT); }},
-		{GLFW_KEY_DOWN, [=]() { MoveTetromino(GLFW_KEY_DOWN); }},
-		{GLFW_KEY_UP, [=]() { RotateTetromino(); }},
-		{GLFW_KEY_SPACE, [=]() { MoveTetromino(GLFW_KEY_SPACE); }}
-	};
-
-	void ProcessInput()
-	{
-		/*
-		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-		{
-			glfwSetWindowShouldClose(window, true);
-			return;
-		}
-
-		if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS && !KeyboardMap[GLFW_KEY_UP])
-		{
-			KeyboardMap[GLFW_KEY_UP] = true;
-			RotMaskIndex = (RotMaskIndex + 1) % 4;
-		}
-		else if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_RELEASE)
-		{
-			KeyboardMap[GLFW_KEY_UP] = false;
-		}
-
-		if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS && !KeyboardMap[GLFW_KEY_SPACE])
-		{
-			KeyboardMap[GLFW_KEY_SPACE] = true;
-			TetrominoIndex = (TetrominoIndex + 1) % tetrominoes.size();
-		}
-		else if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_RELEASE)
-		{
-			KeyboardMap[GLFW_KEY_SPACE] = false;
-		}
-		*/
-
-		for (auto const& [key, func] : KeyDispatchTable)
-		{
-			if (glfwGetKey(window, key) == GLFW_PRESS && !KeyboardMap[key])
-			{
-				KeyboardMap[key] = true;
-				func();
-			}
-			else if (glfwGetKey(window, key) == GLFW_RELEASE)
-			{
-				KeyboardMap[key] = false;
-			}
-		}
-	}
-
-	/*
 	static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 	{
+		auto app = reinterpret_cast<VulkanApplication*>(glfwGetWindowUserPointer(window));
+
 		if (action == GLFW_PRESS)
 		{
-			KeyboardMap[key] = true;
-
 			switch (key)
 			{
-			case GLFW_KEY_UP:
-				RotMaskIndex = (RotMaskIndex + 1) % 4;
+			case GLFW_KEY_LEFT:
+			{
+				app->MoveTetromino(TetrominoMoves::LEFT);
 				break;
 			}
-		}
-
-		if (action == GLFW_RELEASE)
-		{
-			KeyboardMap[key] = false;
+			case GLFW_KEY_RIGHT:
+			{
+				app->MoveTetromino(TetrominoMoves::RIGHT);
+				break;
+			}
+			case GLFW_KEY_DOWN:
+			{
+				app->MoveTetromino(TetrominoMoves::DOWN);
+				break;
+			}
+			case GLFW_KEY_UP:
+			{
+				app->RotateTetromino();
+				break;
+			}
+			}
 		}
 	}
-	*/
 
 	// vulkan
 	const std::vector<const char*> layers = { "VK_LAYER_LUNARG_standard_validation" };
@@ -410,20 +367,13 @@ private:
 		{
 			if ((mask & j) != 0)
 			{
-				/*
-				std::pair<int, int> BlockPos;
-				BlockPos.first = pos.first + col;
-				BlockPos.second = pos.second + row;
-				*/
+				auto [x, y] = pos;
+				x += col;
+				y += row;
 
-				int x = pos.first + col;
-				int y = pos.second + row;
-
-				// if (BlockPos.first < 0 || BlockPos.first >= cols || BlockPos.second < 0 || BlockPos.second >= rows || GetGridBlock())
 				if (x < 0 || x >= cols || y < 0 || y >= rows || GetGridBlock(x, y) != -1)
 				{
-					// chack also if the grid spot is free
-
+					// chack also if the grid spot is free <- ?
 					return false;
 				}
 			}
@@ -442,59 +392,51 @@ private:
 		return true;
 	}
 
-	void MoveTetromino(int key)
+	enum class TetrominoMoves { LEFT, RIGHT, DOWN };
+
+	void MoveTetromino(TetrominoMoves move)
 	{
-		// new position
-		// check new position
-		// assign new position
+		// compute the new position
 
-		std::pair<int, int> NewPos = current.pos;
+		auto [x, y] = current.pos;
 
-		switch (key)
+		switch (move)
 		{
-		case GLFW_KEY_LEFT:
+		case TetrominoMoves::LEFT:
 		{
-			std::cout << "press : GLFW_KEY_LEFT" << std::endl;
-			NewPos.first -= 1;
+			x -= 1;
+			break;
 		}
-		break;
-		case GLFW_KEY_RIGHT:
+		case TetrominoMoves::RIGHT:
 		{
-			std::cout << "press : GLFW_KEY_RIGHT" << std::endl;
-			NewPos.first += 1;
+			x += 1;
+			break;
 		}
-		break;
-		case GLFW_KEY_DOWN:
+		case TetrominoMoves::DOWN:
 		{
-			std::cout << "press : GLFW_KEY_DOWN" << std::endl;
-			NewPos.second += 1;
+			y += 1;
+			break;
 		}
-		break;
-		case GLFW_KEY_SPACE:
-		{
-			std::cout << "press : GLFW_KEY_SPACE" << std::endl;
-			current.type = (current.type + 1) % tetrominoes.size();
-		}
-		break;
 		}
 
-		if (CheckTetromino(current.type, NewPos, current.rot))
+		// check if the new position is valid
+		if (CheckTetromino(current.type, { x, y }, current.rot))
 		{
-			current.pos = NewPos;
+			// valid position -> update tetramino position
+			current.pos = { x, y };
 			UpdateTetramino();
 			UpdateVertexBuffer();
 			UpdateIndexBuffer();
 		}
 		else
 		{
+			// invalid position
 			std::cout << "CheckTetromino --> false" << std::endl;
 		}
 	}
 
 	void RotateTetromino()
 	{
-		std::cout << "press : GLFW_KEY_UP" << std::endl;
-
 		uint8_t NewRot = (current.rot + 1) % 4;
 
 		if (CheckTetromino(current.type, current.pos, NewRot))
@@ -526,7 +468,8 @@ private:
 			{
 				for (auto v : CubeVertices)
 				{
-					glm::vec2 offset = FromGridToWorld(current.pos.second + row, current.pos.first + col);
+					auto [x, y] = current.pos;
+					glm::vec2 offset = FromGridToWorld(y + row, x + col);
 
 					v.position.x += offset.x;
 					v.position.y += offset.y;
@@ -555,7 +498,7 @@ private:
 
 	void DropTetramino()
 	{
-
+		MoveTetromino(TetrominoMoves::DOWN);
 	}
 
 	// vulkan stuff
@@ -2042,24 +1985,12 @@ private:
 		}
 	}
 
-	int ticks = 0;
-
 	void UpdateUniformBuffer(uint32_t index)
 	{
 		static auto StartTime = std::chrono::high_resolution_clock::now();
 
 		auto CurrentTime = std::chrono::high_resolution_clock::now();
 		float DeltaTime = std::chrono::duration<float, std::chrono::seconds::period>(CurrentTime - StartTime).count();
-
-		if (DeltaTime - ticks < 1)
-		{
-
-		}
-		else
-		{
-			ticks++;
-			std::cout << ticks << std::endl;
-		}
 
 		UniformBufferObject ubo = {};
 
@@ -2558,14 +2489,41 @@ private:
 		}
 	}
 
+	void UpdateGame(float DeltaTime)
+	{
+		static float ElapsedTime = 0;
+
+		ElapsedTime += DeltaTime;
+
+		if (ElapsedTime < 1)
+		{
+
+		}
+		else
+		{
+			// std::cout << "tick" << std::endl;
+			ElapsedTime -= 1;
+
+			DropTetramino();
+		}
+	}
+
 	void MainLoop()
 	{
+		auto LastTime = std::chrono::high_resolution_clock::now();
+		auto NowTime = std::chrono::high_resolution_clock::now();
+
 		while (!glfwWindowShouldClose(window))
 		{
-			ProcessInput();
+			NowTime = std::chrono::high_resolution_clock::now();
+			float DeltaTime = std::chrono::duration<float, std::chrono::seconds::period>(NowTime - LastTime).count();
 
+			UpdateGame(DeltaTime);
+			
 			glfwPollEvents();
 			DrawFrame();
+
+			LastTime = NowTime;
 		}
 
 		vkDeviceWaitIdle(device);
