@@ -108,17 +108,19 @@ struct UniformBufferObject
 	glm::mat4 proj;
 };
 
-struct Tetromino
+struct TetrominoType
 {
 	std::array<uint16_t, 4> RotMasks;
 	glm::vec3 color;
 };
 
-struct CurrentTetromino
+struct Tetromino
 {
 	size_t type;
 	std::pair<int, int> pos;
 	uint8_t rot;
+
+	// Tetromino& operator=(const Tetromino&) = default;
 };
 
 class VulkanApplication
@@ -137,7 +139,8 @@ public:
 	}
 
 private:
-	// glfw
+	// glfw stuff
+
 	GLFWwindow* window;
 	const int WindowWidth = 800;
 	const int WindowHeight = 600;
@@ -170,8 +173,6 @@ private:
 
 		if (action == GLFW_PRESS)
 		{
-			// append move to actions queue
-
 			switch (key)
 			{
 			case GLFW_KEY_LEFT:
@@ -198,7 +199,8 @@ private:
 		}
 	}
 
-	// vulkan
+	// vulkan stuff
+
 	const std::vector<const char*> layers = { "VK_LAYER_LUNARG_standard_validation" };
 	VkInstance instance;
 	VkSurfaceKHR surface;
@@ -285,7 +287,7 @@ private:
 
 	// game stuff
 
-	const std::vector<Tetromino> tetrominoes = {
+	const std::vector<TetrominoType> tetrominoes = {
 		{ { 0x4460, 0x02E0, 0x0622, 0x0740 }, {1.0f, 0.5f, 0.0f} }, // L
 		{ { 0x0F00, 0x4444, 0x00F0, 0x2222 }, {0.0f, 1.0f, 1.0f} }, // I
 		{ { 0x2260, 0x0E20, 0x0644, 0x0470 }, {0.0f, 0.0f, 1.0f} }, // J
@@ -307,17 +309,50 @@ private:
 		return grid[row * cols + col];
 	}
 
-	CurrentTetromino current;
+	void SetGridBlock(size_t row, size_t col, int8_t type)
+	{
+		grid[row * cols + col] = type;
+	}
+
+	void ClearGridBlock(size_t row, size_t col)
+	{
+		grid[row * cols + col] = -1;
+	}
+
+	size_t RandTetrominoType()
+	{
+		return (rand() % tetrominoes.size());
+	}
+
+	Tetromino CurrentTetromino;
+
+	void SetCurrentTetromino(size_t type, std::pair<int, int> pos = { 0, 0 }, size_t rot = 0)
+	{
+		CurrentTetromino.type = type;
+		CurrentTetromino.pos = pos;
+		CurrentTetromino.rot = rot;
+	}
+
+	size_t NextTetrominoType;
 
 	void InitGame()
 	{
 		grid.resize(rows * cols);
 		std::fill(grid.begin(), grid.end(), -1);
 
-		current.type = rand() % tetrominoes.size();
-		current.pos = { 0, 0 };
-		current.rot = 0;
+		for (size_t row = rows - 2; row < rows; row++)
+		{
+			for (size_t col = 0; col < cols; col++)
+			{
+				int8_t type = rand() % 7;
+				SetGridBlock(row, col, type);
+			}
+		}
 
+		SetCurrentTetromino(RandTetrominoType());
+		NextTetrominoType = RandTetrominoType();
+
+		/*
 		vertices.clear();
 		indices.clear();
 
@@ -357,6 +392,9 @@ private:
 				col++;
 			}
 		}
+		*/
+
+		UpdateVerticesAndIndices();
 	}
 
 	bool CheckTetromino(size_t type, std::pair<int, int> pos, size_t rot)
@@ -374,9 +412,8 @@ private:
 				x += col;
 				y += row;
 
-				if (x < 0 || x >= cols || y < 0 || y >= rows || GetGridBlock(x, y) != -1)
+				if (x < 0 || x >= cols || y < 0 || y >= rows || GetGridBlock(y, x) != -1)
 				{
-					// chack also if the grid spot is free <- ?
 					return false;
 				}
 			}
@@ -401,7 +438,7 @@ private:
 	{
 		// compute the new position
 
-		auto [x, y] = current.pos;
+		auto [x, y] = CurrentTetromino.pos;
 
 		switch (move)
 		{
@@ -423,14 +460,19 @@ private:
 		}
 
 		// check if the new position is valid
-		if (CheckTetromino(current.type, { x, y }, current.rot))
+		if (CheckTetromino(CurrentTetromino.type, { x, y }, CurrentTetromino.rot))
 		{
 			// valid position -> update tetramino position
-			current.pos = { x, y };
+			CurrentTetromino.pos = { x, y };
 
-			UpdateTetramino();
+			/*
+			// UpdateTetramino();
+			UpdateVerticesAndIndices();
 			UpdateVertexBuffer();
 			UpdateIndexBuffer();
+			*/
+
+			uptodate = false;
 
 			return true;
 		}
@@ -444,17 +486,22 @@ private:
 	bool TurnTetromino()
 	{
 		// compute the new rotation
-		uint8_t NewRot = (current.rot + 1) % 4;
+		uint8_t NewRot = (CurrentTetromino.rot + 1) % 4;
 
 		// check if the new rotation is valid
-		if (CheckTetromino(current.type, current.pos, NewRot))
+		if (CheckTetromino(CurrentTetromino.type, CurrentTetromino.pos, NewRot))
 		{
 			// valid rotation -> update tetramino rotation
-			current.rot = NewRot;
+			CurrentTetromino.rot = NewRot;
 
-			UpdateTetramino();
+			/*
+			// UpdateTetramino();
+			UpdateVerticesAndIndices();
 			UpdateVertexBuffer();
 			UpdateIndexBuffer();
+			*/
+
+			uptodate = false;
 
 			return true;
 		}
@@ -465,15 +512,40 @@ private:
 		}
 	}
 
-	void UpdateTetramino()
+	void AddGridVertices()
 	{
-		vertices.clear();
-		indices.clear();
+		for (size_t row = 0; row < rows; row++)
+		{
+			for (size_t col = 0; col < cols; col++)
+			{
+				if (int8_t index = GetGridBlock(row, col); index != -1)
+				{
+					for (auto v : CubeVertices)
+					{
+						glm::vec2 offset = FromGridToWorld(row, col);
 
-		uint16_t mask = tetrominoes[current.type].RotMasks[current.rot];
+						v.position.x += offset.x;
+						v.position.y += offset.y;
+						v.color = tetrominoes[index].color;
 
-		uint8_t row = 0;
-		uint8_t col = 0;
+						vertices.push_back(v);
+					}
+
+					for (auto i : CubeIndices)
+					{
+						indices.push_back(i + vertices.size() - CubeVertices.size());
+					}
+				}
+			}
+		}
+	}
+
+	void AddTetrominoVertices()
+	{
+		uint16_t mask = tetrominoes[CurrentTetromino.type].RotMasks[CurrentTetromino.rot];
+
+		int row = 0;
+		int col = 0;
 
 		for (uint16_t j = 0x8000; j != 0; j >>= 1)
 		{
@@ -481,13 +553,13 @@ private:
 			{
 				for (auto v : CubeVertices)
 				{
-					auto [x, y] = current.pos;
+					auto [x, y] = CurrentTetromino.pos;
 					glm::vec2 offset = FromGridToWorld(y + row, x + col);
 
 					v.position.x += offset.x;
 					v.position.y += offset.y;
+					v.color = tetrominoes[CurrentTetromino.type].color;
 
-					v.color = tetrominoes[current.type].color;
 					vertices.push_back(v);
 				}
 
@@ -509,11 +581,148 @@ private:
 		}
 	}
 
-	void DropTetramino()
+	void UpdateVerticesAndIndices()
+	{
+		vertices.clear();
+		indices.clear();
+
+		AddTetrominoVertices();
+		AddGridVertices();
+	}
+
+	void UpdateTetramino()
+	{
+		vertices.clear();
+		indices.clear();
+
+		uint16_t mask = tetrominoes[CurrentTetromino.type].RotMasks[CurrentTetromino.rot];
+
+		int row = 0;
+		int col = 0;
+
+		for (uint16_t j = 0x8000; j != 0; j >>= 1)
+		{
+			if ((mask & j) != 0)
+			{
+				for (auto v : CubeVertices)
+				{
+					auto [x, y] = CurrentTetromino.pos;
+					glm::vec2 offset = FromGridToWorld(y + row, x + col);
+
+					v.position.x += offset.x;
+					v.position.y += offset.y;
+
+					v.color = tetrominoes[CurrentTetromino.type].color;
+					vertices.push_back(v);
+				}
+
+				for (auto i : CubeIndices)
+				{
+					indices.push_back(i + vertices.size() - CubeVertices.size());
+				}
+			}
+
+			if (col == 3)
+			{
+				row++;
+				col = 0;
+			}
+			else
+			{
+				col++;
+			}
+		}
+	}
+
+	void PrintGrid()
+	{
+		for (size_t row = 0; row < rows; row++)
+		{
+			for (size_t col = 0; col < cols; col++)
+			{
+				char type = '0' + GetGridBlock(row, col);
+				std::cout << ((type < '0') ? ' ' : type);
+			}
+			std::cout << std::endl;
+		}
+	}
+
+	void UpdateVulkanStuff()
+	{
+		/*
+		vkFreeCommandBuffers(device, CommandPool, CommandBuffers.size(), CommandBuffers.data());
+
+		// vkDestroyBuffer(device, IndexBuffer, nullptr);
+		vkFreeMemory(device, IndexBufferMemory, nullptr);
+		// vkDestroyBuffer(device, VertexBuffer, nullptr);
+		vkFreeMemory(device, VertexBufferMemory, nullptr);
+
+		CreateVertexBuffer();
+		CreateIndexBuffer();
+		CreateCommandBuffers();
+		*/
+
+		UpdateVertexBuffer();
+		UpdateIndexBuffer();
+	}
+
+	void DropTetromino()
 	{
 		if (!MoveTetromino(TetrominoMoves::DROP))
 		{
-			std::cout << "GAME OVER" << std::endl;
+			// std::cout << "GAME OVER" << std::endl;
+
+			// break tetromino -> add its blocks to the grid
+			BreakTetromino();
+
+			// PrintGrid();
+
+			
+			// delete complete lines
+
+			// update current and next tetrominoes
+
+			SetCurrentTetromino(NextTetrominoType);
+			NextTetrominoType = RandTetrominoType();
+			
+			// UpdateVerticesAndIndices();
+			// UpdateVulkanStuff();
+
+			// UpdateVertexBuffer();
+			// UpdateIndexBuffer();
+
+			uptodate = false;
+		}
+	}
+
+	void BreakTetromino()
+	{
+		uint16_t mask = tetrominoes[CurrentTetromino.type].RotMasks[CurrentTetromino.rot];
+
+		uint8_t row = 0;
+		uint8_t col = 0;
+
+		for (uint16_t j = 0x8000; j != 0; j >>= 1)
+		{
+			if ((mask & j) != 0)
+			{
+				auto [x, y] = CurrentTetromino.pos;
+				x += col;
+				y += row;
+
+				// std::cout << "SetGridBlock(" << y << ", " << x << ", " << CurrentTetromino.type << ")" << std::endl;
+				SetGridBlock(y, x, CurrentTetromino.type);
+			}
+
+			if (col == 3)
+			{
+				row++;
+				col = 0;
+			}
+			else
+			{
+				col++;
+			}
 		}
 	}
 
@@ -540,7 +749,7 @@ private:
 			}
 			case TetrominoMoves::DROP:
 			{
-				DropTetramino();
+				DropTetromino();
 				break;
 			}
 			}
@@ -1818,6 +2027,7 @@ private:
 		VkBuffer StagingBuffer;
 		VkDeviceMemory StagingBufferMemory;
 		VkDeviceSize size = sizeof(Vertex) * vertices.size();
+		// VkDeviceSize size = sizeof(Vertex) * CubeVertices.size() * grid.size();
 		VkBufferUsageFlags usage;
 		VkMemoryPropertyFlags properties;
 
@@ -1844,8 +2054,8 @@ private:
 	{
 		VkBuffer StagingBuffer;
 		VkDeviceMemory StagingBufferMemory;
-		// VkDeviceSize size = sizeof(indices.at(0)) * indices.size();
 		VkDeviceSize size = sizeof(IndexType) * indices.size();
+		// VkDeviceSize size = sizeof(IndexType) * CubeIndices.size() * grid.size();
 		VkBufferUsageFlags usage;
 		VkMemoryPropertyFlags properties;
 
@@ -1906,7 +2116,7 @@ private:
 		}
 	}
 
-	glm::vec2 FromGridToWorld(size_t row, size_t col)
+	glm::vec2 FromGridToWorld(int row, int col)
 	{
 		float x = -(cols * 0.5f - 1 + 0.5f) + col;
 		float y = rows * 0.5f - 1 + 0.5f - row;
@@ -2413,6 +2623,7 @@ private:
 
 			// vkCmdDraw(CommandBuffers[i], vertices.size(), 1, 0, 0);
 			vkCmdDrawIndexed(CommandBuffers[i], indices.size(), 1, 0, 0, 0);
+			// vkCmdDrawIndexed(CommandBuffers[i], CubeIndices.size() * grid.size(), 1, 0, 0, 0);
 
 			vkCmdEndRenderPass(CommandBuffers[i]);
 
@@ -2554,6 +2765,8 @@ private:
 		}
 	}
 
+	bool uptodate = false;
+
 	void MainLoop()
 	{
 		auto LastTime = std::chrono::high_resolution_clock::now();
@@ -2569,6 +2782,13 @@ private:
 			ProcessMoves();
 
 			// if needed update vertex and index objects
+
+			if (!uptodate)
+			{
+				UpdateVerticesAndIndices();
+				UpdateVulkanStuff();
+				uptodate = true;
+			}
 
 			glfwPollEvents();
 			DrawFrame();
