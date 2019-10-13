@@ -176,25 +176,21 @@ private:
 			{
 			case GLFW_KEY_LEFT:
 			{
-				// app->MoveTetromino(UserInput::LEFT);
 				app->MovesQueue.push(TetrominoMoves::LEFT);
 				break;
 			}
 			case GLFW_KEY_RIGHT:
 			{
-				// app->MoveTetromino(UserInput::RIGHT);
 				app->MovesQueue.push(TetrominoMoves::RIGHT);
 				break;
 			}
 			case GLFW_KEY_UP:
 			{
-				// app->RotateTetromino();
 				app->MovesQueue.push(TetrominoMoves::TURN);
 				break;
 			}
 			case GLFW_KEY_DOWN:
 			{
-				// app->MoveTetromino(UserInput::DOWN);
 				app->MovesQueue.push(TetrominoMoves::DROP);
 				break;
 			}
