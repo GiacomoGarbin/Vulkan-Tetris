@@ -20,6 +20,7 @@
 #include <chrono>
 #include <map>
 #include <functional>
+#include <queue>
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -173,22 +174,22 @@ private:
 			{
 			case GLFW_KEY_LEFT:
 			{
-				app->MoveTetromino(TetrominoMoves::LEFT);
+				app->MovesQueue.push(TetrominoMoves::LEFT);
 				break;
 			}
 			case GLFW_KEY_RIGHT:
 			{
-				app->MoveTetromino(TetrominoMoves::RIGHT);
-				break;
-			}
-			case GLFW_KEY_DOWN:
-			{
-				app->MoveTetromino(TetrominoMoves::DOWN);
+				app->MovesQueue.push(TetrominoMoves::RIGHT);
 				break;
 			}
 			case GLFW_KEY_UP:
 			{
-				app->RotateTetromino();
+				app->MovesQueue.push(TetrominoMoves::TURN);
+				break;
+			}
+			case GLFW_KEY_DOWN:
+			{
+				app->MovesQueue.push(TetrominoMoves::DROP);
 				break;
 			}
 			}
@@ -392,9 +393,9 @@ private:
 		return true;
 	}
 
-	enum class TetrominoMoves { LEFT, RIGHT, DOWN };
+	enum class TetrominoMoves { LEFT, RIGHT, TURN, DROP };
 
-	void MoveTetromino(TetrominoMoves move)
+	bool MoveTetromino(TetrominoMoves move)
 	{
 		// compute the new position
 
@@ -412,7 +413,7 @@ private:
 			x += 1;
 			break;
 		}
-		case TetrominoMoves::DOWN:
+		case TetrominoMoves::DROP:
 		{
 			y += 1;
 			break;
@@ -424,31 +425,41 @@ private:
 		{
 			// valid position -> update tetramino position
 			current.pos = { x, y };
+
 			UpdateTetramino();
 			UpdateVertexBuffer();
 			UpdateIndexBuffer();
+
+			return true;
 		}
 		else
 		{
 			// invalid position
-			std::cout << "CheckTetromino --> false" << std::endl;
+			return false;
 		}
 	}
 
-	void RotateTetromino()
+	bool TurnTetromino()
 	{
+		// compute the new rotation
 		uint8_t NewRot = (current.rot + 1) % 4;
 
+		// check if the new rotation is valid
 		if (CheckTetromino(current.type, current.pos, NewRot))
 		{
+			// valid rotation -> update tetramino rotation
 			current.rot = NewRot;
+
 			UpdateTetramino();
 			UpdateVertexBuffer();
 			UpdateIndexBuffer();
+
+			return true;
 		}
 		else
 		{
-			std::cout << "CheckTetromino --> false" << std::endl;
+			// invalid rotation
+			return false;
 		}
 	}
 
@@ -498,7 +509,41 @@ private:
 
 	void DropTetramino()
 	{
-		MoveTetromino(TetrominoMoves::DOWN);
+		if (!MoveTetromino(TetrominoMoves::DROP))
+		{
+			std::cout << "GAME OVER" << std::endl;
+		}
+	}
+
+	std::queue<TetrominoMoves> MovesQueue;
+
+	void ProcessMoves()
+	{
+		if (!MovesQueue.empty())
+		{
+			auto move = MovesQueue.front();
+
+			switch (move)
+			{
+			case TetrominoMoves::LEFT:
+			case TetrominoMoves::RIGHT:
+			{
+				MoveTetromino(move);
+				break;
+			}
+			case TetrominoMoves::TURN:
+			{
+				TurnTetromino();
+				break;
+			}
+			case TetrominoMoves::DROP:
+			{
+				DropTetramino();
+				break;
+			}
+			}
+			MovesQueue.pop();
+		}
 	}
 
 	// vulkan stuff
@@ -2489,7 +2534,7 @@ private:
 		}
 	}
 
-	void UpdateGame(float DeltaTime)
+	void UpdateDrop(float DeltaTime)
 	{
 		static float ElapsedTime = 0;
 
@@ -2501,10 +2546,9 @@ private:
 		}
 		else
 		{
-			// std::cout << "tick" << std::endl;
+			// a second has elapsed
 			ElapsedTime -= 1;
-
-			DropTetramino();
+			MovesQueue.push(TetrominoMoves::DROP);
 		}
 	}
 
@@ -2516,10 +2560,14 @@ private:
 		while (!glfwWindowShouldClose(window))
 		{
 			NowTime = std::chrono::high_resolution_clock::now();
-			float DeltaTime = std::chrono::duration<float, std::chrono::seconds::period>(NowTime - LastTime).count();
+			auto DeltaTime = std::chrono::duration<float, std::chrono::seconds::period>(NowTime - LastTime).count();
 
-			UpdateGame(DeltaTime);
-			
+			UpdateDrop(DeltaTime);
+
+			ProcessMoves();
+
+			// if needed update vertex and index objects
+
 			glfwPollEvents();
 			DrawFrame();
 
