@@ -297,8 +297,8 @@ private:
 		{ { 0x2640, 0x0C60, 0x0264, 0x0630 }, {1.0f, 0.0f, 0.0f} }, // Z
 	};
 
-	size_t TetrominoIndex = 0;
-	size_t RotMaskIndex = 0;
+	// size_t TetrominoIndex = 0;
+	// size_t RotMaskIndex = 0;
 
 	const size_t rows = 20;
 	const size_t cols = 10;
@@ -326,7 +326,9 @@ private:
 
 	Tetromino CurrentTetromino;
 
-	void SetCurrentTetromino(size_t type, std::pair<int, int> pos = { 0, 0 }, size_t rot = 0)
+	// static const std::pair<int, int> TetrominoStartPosition = { 0, 3 };
+
+	void SetCurrentTetromino(size_t type, std::pair<int, int> pos = { 0, 5 }, size_t rot = 0)
 	{
 		CurrentTetromino.type = type;
 		CurrentTetromino.pos = pos;
@@ -351,6 +353,8 @@ private:
 
 		SetCurrentTetromino(RandTetrominoType());
 		NextTetrominoType = RandTetrominoType();
+
+		std::cout << CurrentTetromino.pos.first << ' ' << CurrentTetromino.pos.second << std::endl;
 
 		/*
 		vertices.clear();
@@ -649,7 +653,6 @@ private:
 
 	void UpdateVulkanStuff()
 	{
-		/*
 		vkFreeCommandBuffers(device, CommandPool, CommandBuffers.size(), CommandBuffers.data());
 
 		// vkDestroyBuffer(device, IndexBuffer, nullptr);
@@ -660,10 +663,9 @@ private:
 		CreateVertexBuffer();
 		CreateIndexBuffer();
 		CreateCommandBuffers();
-		*/
 
-		UpdateVertexBuffer();
-		UpdateIndexBuffer();
+		// UpdateVertexBuffer();
+		// UpdateIndexBuffer();
 	}
 
 	void DropTetromino()
@@ -677,14 +679,15 @@ private:
 
 			// PrintGrid();
 
-			
-			// delete complete lines
+			// delete full lines
+
+			DeleteLines();
 
 			// update current and next tetrominoes
 
 			SetCurrentTetromino(NextTetrominoType);
 			NextTetrominoType = RandTetrominoType();
-			
+
 			// UpdateVerticesAndIndices();
 			// UpdateVulkanStuff();
 
@@ -724,6 +727,40 @@ private:
 				col++;
 			}
 		}
+	}
+
+	void DeleteLines()
+	{
+		for (size_t row = 0; row < rows; row++)
+		{
+			bool FullLine = true;
+
+			for (size_t col = 0; col < cols; col++)
+			{
+				if (GetGridBlock(row, col) == -1)
+				{
+					FullLine = false;
+					break;
+				}
+			}
+
+			if (FullLine)
+			{
+				DeleteLine(row);
+			}
+		}
+	}
+
+	void DeleteLine(size_t line)
+	{
+		for (size_t row = line; row > 0; row--)
+		{
+			for (size_t col = 0; col < cols; col++)
+			{
+				SetGridBlock(row, col, GetGridBlock(row - 1, col));
+			}
+		}
+		std::fill(grid.begin(), grid.begin() + cols, -1);
 	}
 
 	std::queue<TetrominoMoves> MovesQueue;
@@ -2078,6 +2115,7 @@ private:
 		vkFreeMemory(device, StagingBufferMemory, nullptr);
 	}
 
+	/*
 	void UpdateVertexAndIndexValues()
 	{
 		vertices.clear();
@@ -2115,6 +2153,7 @@ private:
 			}
 		}
 	}
+	*/
 
 	glm::vec2 FromGridToWorld(int row, int col)
 	{
