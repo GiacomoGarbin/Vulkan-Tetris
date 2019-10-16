@@ -668,16 +668,14 @@ private:
 		// UpdateIndexBuffer();
 	}
 
+	bool GameOver = false;
+
 	void DropTetromino()
 	{
 		if (!MoveTetromino(TetrominoMoves::DROP))
 		{
-			// std::cout << "GAME OVER" << std::endl;
-
 			// break tetromino -> add its blocks to the grid
 			BreakTetromino();
-
-			// PrintGrid();
 
 			// delete full lines
 
@@ -686,13 +684,21 @@ private:
 			// update current and next tetrominoes
 
 			SetCurrentTetromino(NextTetrominoType);
+			
+			// check
+
+			if (auto [type, pos, rot] = CurrentTetromino; !CheckTetromino(type, pos, rot))
+			{
+				std::cout << "GAME OVER" << std::endl;
+				GameOver = true;
+			}
+			
 			NextTetrominoType = RandTetrominoType();
 
-			// UpdateVerticesAndIndices();
-			// UpdateVulkanStuff();
+			// 
 
-			// UpdateVertexBuffer();
-			// UpdateIndexBuffer();
+			// std::cout << "GAME OVER" << std::endl;
+
 
 			uptodate = false;
 		}
@@ -767,6 +773,8 @@ private:
 
 	void ProcessMoves()
 	{
+		if (GameOver) return;
+
 		if (!MovesQueue.empty())
 		{
 			auto move = MovesQueue.front();
@@ -2794,11 +2802,10 @@ private:
 
 		if (ElapsedTime < 1)
 		{
-
+			// a second has not yet elapsed
 		}
 		else
 		{
-			// a second has elapsed
 			ElapsedTime -= 1;
 			MovesQueue.push(TetrominoMoves::DROP);
 		}
