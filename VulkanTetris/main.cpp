@@ -300,8 +300,8 @@ private:
 	// size_t TetrominoIndex = 0;
 	// size_t RotMaskIndex = 0;
 
-	const size_t rows = 20;
-	const size_t cols = 10;
+	const int rows = 20;
+	const int cols = 10;
 	std::vector<int8_t> grid;
 
 	int8_t GetGridBlock(size_t row, size_t col)
@@ -544,7 +544,90 @@ private:
 		}
 	}
 
-	void AddTetrominoVertices()
+	const glm::vec3 EdgeColor = { 0.5f, 0.5f, 0.5f };
+
+	void AddEdgeVertices()
+	{
+		for (int col = -1; col <= cols; col++)
+		{
+			// top
+
+			for (auto v : CubeVertices)
+			{
+				glm::vec2 offset = FromGridToWorld(-1, col);
+
+				v.position.x += offset.x;
+				v.position.y += offset.y;
+				v.color = EdgeColor;
+
+				vertices.push_back(v);
+			}
+
+			for (auto i : CubeIndices)
+			{
+				indices.push_back(i + vertices.size() - CubeVertices.size());
+			}
+
+			// bottom
+
+			for (auto v : CubeVertices)
+			{
+				glm::vec2 offset = FromGridToWorld(rows, col);
+
+				v.position.x += offset.x;
+				v.position.y += offset.y;
+				v.color = EdgeColor;
+
+				vertices.push_back(v);
+			}
+
+			for (auto i : CubeIndices)
+			{
+				indices.push_back(i + vertices.size() - CubeVertices.size());
+			}
+		}
+
+		for (int row = -1; row <= rows; row++)
+		{
+			// left
+
+			for (auto v : CubeVertices)
+			{
+				glm::vec2 offset = FromGridToWorld(row, -1);
+
+				v.position.x += offset.x;
+				v.position.y += offset.y;
+				v.color = EdgeColor;
+
+				vertices.push_back(v);
+			}
+
+			for (auto i : CubeIndices)
+			{
+				indices.push_back(i + vertices.size() - CubeVertices.size());
+			}
+
+			// right
+
+			for (auto v : CubeVertices)
+			{
+				glm::vec2 offset = FromGridToWorld(row, cols);
+
+				v.position.x += offset.x;
+				v.position.y += offset.y;
+				v.color = EdgeColor;
+
+				vertices.push_back(v);
+			}
+
+			for (auto i : CubeIndices)
+			{
+				indices.push_back(i + vertices.size() - CubeVertices.size());
+			}
+		}
+	}
+
+	void AddCurrentTetrominoVertices()
 	{
 		uint16_t mask = tetrominoes[CurrentTetromino.type].RotMasks[CurrentTetromino.rot];
 
@@ -585,13 +668,20 @@ private:
 		}
 	}
 
+	void AddNexttTetrominoVertices() {}
+
 	void UpdateVerticesAndIndices()
 	{
 		vertices.clear();
 		indices.clear();
 
-		AddTetrominoVertices();
+
+		AddCurrentTetrominoVertices();
 		AddGridVertices();
+		std::cout << vertices.size() << std::endl;
+		AddEdgeVertices();
+
+		std::cout << vertices.size() << std::endl;
 	}
 
 	void UpdateTetramino()
@@ -684,7 +774,7 @@ private:
 			// update current and next tetrominoes
 
 			SetCurrentTetromino(NextTetrominoType);
-			
+
 			// check
 
 			if (auto [type, pos, rot] = CurrentTetromino; !CheckTetromino(type, pos, rot))
@@ -692,7 +782,7 @@ private:
 				std::cout << "GAME OVER" << std::endl;
 				GameOver = true;
 			}
-			
+
 			NextTetrominoType = RandTetrominoType();
 
 			// 
