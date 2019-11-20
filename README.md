@@ -4,4 +4,4 @@
 
 This is my first attempt with Vulkan.
 
-I started building a Vulkan renderer following Alexander Overvoorde's excellent [tutorial](https://vulkan-tutorial.com/), and I'm now slowly adding the game mechanics taking as reference Jake	Gordon's [article](https://codeincomplete.com/posts/javascript-tetris/).
+The Vulkan renderer is based on Alexander Overvoorde's excellent [tutorial](https://vulkan-tutorial.com/), and the game mechanics are based on Jake	Gordon's [article](https://codeincomplete.com/posts/javascript-tetris/).
