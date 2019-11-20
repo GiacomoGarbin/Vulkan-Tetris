@@ -326,8 +326,6 @@ private:
 
 	Tetromino CurrentTetromino;
 
-	// static const std::pair<int, int> TetrominoStartPosition = { 0, 3 };
-
 	void SetCurrentTetromino(size_t type, std::pair<int, int> pos = { 3, 0 }, size_t rot = 0)
 	{
 		CurrentTetromino.type = type;
@@ -730,17 +728,14 @@ private:
 	{
 		vkFreeCommandBuffers(device, CommandPool, CommandBuffers.size(), CommandBuffers.data());
 
-		// vkDestroyBuffer(device, IndexBuffer, nullptr);
+		vkDestroyBuffer(device, IndexBuffer, nullptr);
 		vkFreeMemory(device, IndexBufferMemory, nullptr);
-		// vkDestroyBuffer(device, VertexBuffer, nullptr);
+		vkDestroyBuffer(device, VertexBuffer, nullptr);
 		vkFreeMemory(device, VertexBufferMemory, nullptr);
 
 		CreateVertexBuffer();
 		CreateIndexBuffer();
 		CreateCommandBuffers();
-
-		// UpdateVertexBuffer();
-		// UpdateIndexBuffer();
 	}
 
 	bool GameOver = false;
@@ -752,28 +747,19 @@ private:
 			// break tetromino -> add its blocks to the grid
 			BreakTetromino();
 
-			// delete full lines
-
+			// delete full lines (if any)
 			DeleteLines();
 
 			// update current and next tetrominoes
-
 			SetCurrentTetromino(NextTetrominoType);
+			NextTetrominoType = RandTetrominoType();
 
-			// check
-
+			// check current tetromino
 			if (auto [type, pos, rot] = CurrentTetromino; !CheckTetromino(type, pos, rot))
 			{
 				std::cout << "GAME OVER" << std::endl;
 				GameOver = true;
 			}
-
-			NextTetrominoType = RandTetrominoType();
-
-			// 
-
-			// std::cout << "GAME OVER" << std::endl;
-
 
 			uptodate = false;
 		}
